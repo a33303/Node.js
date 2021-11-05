@@ -1,21 +1,36 @@
-const fs = require('fs')
-const readline = require("readline");
+const fs = require('fs');
+const http = require('http');
+const {join} = require('path');
 
-const readStream = fs.createReadStream('./access.log', 'utf8')
-const writeStreamOne =  fs.createWriteStream('./89.123.1.41_requests.log')
-const writeStreamTwo =  fs.createWriteStream('./34.48.240.111_requests.log')
+const isFile = (path) => {
+   fs.lstatSync(path).isFile()
+};
 
-const rl = readline.createInterface({
-    input: readStream,
-    terminal: true
-});
+(async () => {
+    http.createServer((req,res)=> {
+      const filePath = join(process.cwd(), req.url.replace(/\[\.\.]/gi, '..'));
+      if (!fs.existsSync(filePath)) {
+        return res.end('Not Found');
+      }
 
-rl.on('line', (line) => {
-    if (line.includes('89.123.1.41')) {
-        writeStreamOne.write(line + "\n")
-    }
+      if (isFile(filePath)) {
+        return fs.createReadStream(filePath, 'utf-8').pipe(res);
+      }
 
-    if (line.includes('34.48.240.111')) {
-        writeStreamTwo.write(line + "\n")
-    }
-})
+      const links = fs.readdirSync(filePath) //выводит ошибку "Error: ENOTDIR: not a directory, scandir"
+        .map(filename => [join(req.url, filename), filename])
+        .map(([filepath, filename]) => `<li><a href="${filepath}">${filename}</a></li>`)
+        .concat([
+          `<li><a href="[..]/">..</a></li>`
+      ])
+        .join("");
+
+      const html = fs
+        .readFileSync(join(__dirname, './index.html'), 'utf-8')
+         .replace(/#links/gi, links);
+         res.writeHead(200, 'OK', {
+        'Content-Type': 'text/html',
+      });
+      res.end(html);
+    }).listen(5555);
+  })();
