@@ -1,83 +1,36 @@
-const fs = require('fs/promises');
-const {lstatSync} = require('fs');
-const inquirer = require('inquirer');
-const yargs = require('yargs');
-const path = require('path');
+const fs = require('fs');
+const http = require('http');
+const {join} = require('path');
 
-//let executionDir = process.cwd();
-//const isFile = (fileName) => fs.lstatSync(fileName).isFile();
-//const list = fs.readdirSync('./').filter(isFile);
+const isFile = (path) => {
+   fs.lstatSync(path).isFile()
+};
 
-let currentDir = process.cwd();
-const options = yargs
-  .positional('d', {
-    describe: 'Путь к каталогу',
-    default: process.cwd()
-  })
-  .positional('p', {
-    describe: 'Паттерн',
-    default: ''
-  }).argv;
+(async () => {
+    http.createServer((req,res)=> {
+      const filePath = join(process.cwd(), req.url.replace(/\[\.\.]/gi, '..'));
+      if (!fs.existsSync(filePath)) {
+        return res.end('Not Found');
+      }
 
-class ListItem {
-  constructor(path, fileName) {
-    this.path = path;
-    this.fileName = fileName;
-  }
-  get listDirectory() {
-    return lstatSync(this.path).isDirectory();
-  }
-}
+      if (isFile(filePath)) {
+        return fs.createReadStream(filePath, 'utf-8').pipe(res);
+      }
 
-const run = async () =>
-{
-  const list = await fs.readdir(currentDir);
-  const items = list.map (fileName =>
-    new ListItem(path.join(currentDir, fileName), fileName));
+      const links = fs.readdirSync(filePath) //выводит ошибку "Error: ENOTDIR: not a directory, scandir"
+        .map(filename => [join(req.url, filename), filename])
+        .map(([filepath, filename]) => `<li><a href="${filepath}">${filename}</a></li>`)
+        .concat([
+          `<li><a href="[..]/">..</a></li>`
+      ])
+        .join("");
 
-  const item = await inquirer
-    .prompt([
-      {
-        name: 'listItem',
-        type: 'list',
-        message: `Выберите: ${currentDir}`,
-        choices: items.map(item => ({ name: item.fileName, value: item })),
-      },
-    ])
-    .then(answer => answer.listItem);
-
-  if (item.listDirectory) {
-    currentDir = item.path;
-    return await run();
-  } else {
-    const data = await fs.readFile(item.path, 'utf-8');
-
-    if (options.p == null) console.log(data);
-    else {
-      const regExp = new RegExp(options.p, 'igm');
-      console.log(data.match(regExp));
-    }
-  }
-}
-
-/*
-inquirer.prompt([
-  {
-    name: 'fileName',
-    type: 'list', // input, number, confirm, list, checkbox, password
-    message: 'Выберите файл для чтения',
-    choices: list,
-  },
-])
-  .then(({ fileName }) => {
-    const fullPath = path.join(executionDir, fileName);
-
-    fs.readFile(fullPath, 'utf-8', (err, data) => {
-      if (err) console.log(err);
-      else console.log(data);
-    });
-  });
-
-*/
-run();
-
+      const html = fs
+        .readFileSync(join(__dirname, './index.html'), 'utf-8')
+         .replace(/#links/gi, links);
+         res.writeHead(200, 'OK', {
+        'Content-Type': 'text/html',
+      });
+      res.end(html);
+    }).listen(5555);
+  })();
