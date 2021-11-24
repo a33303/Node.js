@@ -1,22 +1,31 @@
 {
-  "name": "nodehw1",
+  "name": "my-awesome-package",
   "version": "1.0.0",
-  "description": "",
-  "main": "homework4.js",
+  "description": "The best package you will ever find.",
+  "main": "index.js",
   "packageManager": "yarn@3.1.0",
   "scripts": {
-    "dev": "node homework4.js",
+    "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "webpack-dev-server --mode development"
+    "start": "webpack-dev-server --mode development",
+    "build": "babel src -d lib"
   },
   "keywords": [],
-  "author": "",
+  "author": "a33303",
   "license": "ISC",
   "dependencies": {
-    "colors": "^1.4.0"
-  },
-  "devDependencies": {
+    "colors": "^1.4.0",
     "eslint": "^8.0.1",
-    "eslint-plugin-node": "^11.1.0"
-  }
+    "eslint-plugin-node": "^11.1.0",
+    "express": "^4.17.1",
+    "socket.io": "^4.3.2"
+  },
+  "repository": {
+    "url": "https://github.com/a33303/node.js.git",
+    "type": "git"
+  },
+  "bugs": {
+    "url": "https://github.com/a33303/node.js/issues"
+  },
+  "homepage": "https://github.com/a33303/node.js#readme"
 }

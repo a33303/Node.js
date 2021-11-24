@@ -1,36 +1,61 @@
-const fs = require('fs');
-const http = require('http');
-const {join} = require('path');
+const socket = require('socket.io')
+const http = require('http')
+const fs = require('fs')
+const path = require('path')
 
-const isFile = (path) => {
-   fs.lstatSync(path).isFile()
-};
+//Создание сервера
+const server = http
+  .createServer(((req, res) => {
+    if (req.method === 'GET') {
+      const indexPath = path.join(__dirname, 'index.html')
+      const readStream = fs.createReadStream(indexPath)
+      readStream.pipe(res)
+    }  else {
+      res.statusCode = 405;
+      res.end();
+    }
+  }))
 
-(async () => {
-    http.createServer((req,res)=> {
-      const filePath = join(process.cwd(), req.url.replace(/\[\.\.]/gi, '..'));
-      if (!fs.existsSync(filePath)) {
-        return res.end('Not Found');
+// переменная сокет
+const io = socket(server)
+const online = []
+
+io.on('connection', client => {
+  let userName = (Math.random() + 1).toString(36).substring(7)
+  online.push({userName, client})
+  console.log('Присоединился: ', userName)
+  // отключение пользователя
+  client.on('disconnect', () => {
+    console.log('Отключился: ', userName)
+  })
+
+  //передача из index.html client-msg
+  client.on('client-msg', data => {
+    const payload = {
+      message: data.message,
+      user: userName
+    }
+    // созданное событие client вызываем в server-msg
+    // broadcast сообщает всем, кроме меня
+    client.broadcast.emit('server-msg', payload)
+    client.emit('server-msg', payload)
+    })
+
+    // создание событий подключений
+    client.on('connection', () => {
+      const statusConnect = {
+      message:'Присоединился к чату',
+      user: userName
       }
-
-      if (isFile(filePath)) {
-        return fs.createReadStream(filePath, 'utf-8').pipe(res);
+      client.broadcast.emit('server-msg', statusConnect)
+    })
+    client.on('disconnect', () => {
+      const statusDisconnect = {
+      message:'Отключился',
+      user: userName
       }
+      client.broadcast.emit('server-msg', statusDisconnect)
+    })
+})
 
-      const links = fs.readdirSync(filePath) //выводит ошибку "Error: ENOTDIR: not a directory, scandir"
-        .map(filename => [join(req.url, filename), filename])
-        .map(([filepath, filename]) => `<li><a href="${filepath}">${filename}</a></li>`)
-        .concat([
-          `<li><a href="[..]/">..</a></li>`
-      ])
-        .join("");
-
-      const html = fs
-        .readFileSync(join(__dirname, './index.html'), 'utf-8')
-         .replace(/#links/gi, links);
-         res.writeHead(200, 'OK', {
-        'Content-Type': 'text/html',
-      });
-      res.end(html);
-    }).listen(5555);
-  })();
+server.listen(5555)

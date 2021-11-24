@@ -2,11 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Node JS HomeWork 5</title>
+    <title>Socket</title>
+    <script src="https://cdn.socket.io/4.3.2/socket.io.min.js" integrity="sha384-KAZ4DtjNhLChOB/hxXuKqhMLYvx3b5MlT55xPEiNmREKRzeEm+RVPlTnAn0ajQNs" crossorigin="anonymous"></script>
 </head>
 <body>
-    <ul>
-        #links
-    </ul>
+<input id="input" type="text" autofocus>
+<button id="button">Send</button>
+<div id="messages"></div>
+<script>
+    const socket = io('localhost:5555')
+    const messageBlock = document.querySelector('#messages')
+    const sendButton = document.querySelector('#button')
+    const input = document.querySelector('#input')
+
+    sendButton.onclick = () => {
+        const data = {
+            message: input.value, socketId: socket.id
+        }
+        socket.emit('client-msg', data)
+        // данные из инпута чата, вызвав событие сокет передает в виде client-msg
+        input.value = ''
+    }
+
+
+    // создаем событие server-msg, в котором данные отображаем в id messages
+    socket.on('server-msg', data => {
+        messageBlock.insertAdjacentHTML('afterbegin',`<div>${data.user}: ${data.message}</div>`)
+    })
+
+    socket.on('connect', (user) => {
+        socket.emit('connection', `<div>${user}</div>`)
+    })
+
+    socket.on('disconnect', (user) => {
+        socket.emit('disconnect', `<div>${user}</div>`)
+    })
+
+    socket.on('created-name', ({username, token}) => {
+        addName(username, token)
+    })
+
+    socket.on('user-update-count', data => {
+        addUserCount(data)
+    })
+
+    const addName = (username, token) => {
+        const msgSpan = document.createElement('span').innerHTML = `Name ${username}: Token ${token}`
+        document.getElementById('title').innerHTML = msgSpan
+    }
+
+    const addUserCount = (data) => {
+        document.getElementById('total=users').innerHTML = `${data.cnt}`
+    }
+
+    window.addEventListener('beforeunload', (e) => {
+        socket.emit('user-disconnected', {socketId: socket.id})
+    })
+
+</script>
 </body>
 </html>
